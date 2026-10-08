@@ -1,0 +1,62 @@
+name: Prática 10 - Docker em produção
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validar:
+    name: Build, integração e recursos de produção
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Baixar o repositório
+        uses: actions/checkout@v4
+
+      - name: Preparar ambiente e navegador
+        run: |
+          cp .env.example .env
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          chmod +x scripts/run-pratica.sh
+
+      - name: Validar arquivos
+        run: |
+          bash -n scripts/run-pratica.sh
+          docker compose config --quiet
+          node --check api-transacoes/app.js
+          python -m py_compile servico-query/app.py
+
+      - name: Executar a prática completa
+        run: bash scripts/run-pratica.sh
+
+      - name: Conferir as evidências
+        run: |
+          test -s evidencias/01-servico-transacoes.png
+          test -s evidencias/02-servico-consultas.png
+          test -s evidencias/03-recursos-producao.png
+          grep -q 'conta-001' evidencias/10-consulta-saldos.json
+          grep -Eq 'Up|running' evidencias/11-compose-ps.txt
+          grep -q 'memory=536870912' evidencias/13-limites-restart.txt
+          grep -q 'restart=always' evidencias/13-limites-restart.txt
+          file evidencias/*.png
+
+      - name: Publicar evidências da prática
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidencias-pratica-10
+          path: evidencias/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Diagnóstico em caso de falha
+        if: failure()
+        run: |
+          docker compose ps -a || true
+          docker compose logs --no-color || true
