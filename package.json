@@ -1,0 +1,9 @@
+{
+  "name": "pratica-10-docker-producao",
+  "version": "1.0.0",
+  "private": true,
+  "devDependencies": {
+    "playwright": "1.49.1"
+  }
+}
+
